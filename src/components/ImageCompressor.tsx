@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, Image as ImageIcon, FileImage, Zap, Crop } from 'lucide-react';
+import { Upload, Download, Image as ImageIcon, FileImage, Zap, Crop, Camera } from 'lucide-react';
 import { ImageCropper } from './ImageCropper';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
@@ -37,6 +37,7 @@ const ImageCompressor: React.FC = () => {
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Debug state changes
@@ -62,6 +63,13 @@ const ImageCompressor: React.FC = () => {
 
     setImageFiles((prev) => [...prev, ...newFiles]);
   }, []);
+
+  // Add this function to handle camera capture
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileUpload(e.target.files);
+    }
+  };
 
   const compressImage = async (imageFile: ImageFile): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -263,6 +271,25 @@ const ImageCompressor: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Camera className="h-5 w-5" />
+                  Take Photo
+                </Button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture}
+                />
+              </div>
               <div
                 className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-brand-primary transition-smooth cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}

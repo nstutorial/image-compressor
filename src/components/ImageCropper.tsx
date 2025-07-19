@@ -37,6 +37,11 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const { toast } = useToast();
+  // Add a state to detect if the user is using touch
+  const [isTouch, setIsTouch] = useState(false);
+
+  // Update handle size based on input type
+  const getHandleSize = () => (isTouch ? 24 : 12);
 
   // Load and display image
   useEffect(() => {
@@ -176,7 +181,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     
     // Draw resize handles
     ctx.setLineDash([]);
-    const handleSize = 8;
+    const handleSize = getHandleSize();
     
     // Corner handles
     const cornerHandles = [
@@ -224,7 +229,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   };
 
   const getResizeHandle = (x: number, y: number): ResizeHandle => {
-    const handleSize = 12;
+    const handleSize = getHandleSize();
     const { x: cx, y: cy, width, height } = cropArea;
     
     // Corner handles
@@ -415,6 +420,36 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     });
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    setIsTouch(true);
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      // Simulate a mouse event object
+      const fakeEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => e.preventDefault(),
+      } as unknown as React.MouseEvent<HTMLCanvasElement>;
+      handleMouseDown(fakeEvent);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      const fakeEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => e.preventDefault(),
+      } as unknown as React.MouseEvent<HTMLCanvasElement>;
+      handleMouseMove(fakeEvent);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    handleMouseUp();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
@@ -436,7 +471,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
               style={{ 
                 minWidth: 300, 
                 minHeight: 200, 
-                background: '#f3f3f3',
+                // background: '#f3f3f3',
                 display: 'block',
                 cursor: isResizing ? 'grabbing' : isDragging ? 'grabbing' : 'default'
               }}
@@ -444,6 +479,10 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
             />
           </div>
           {imageError && (
