@@ -39,6 +39,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   const { toast } = useToast();
   // Add a state to detect if the user is using touch
   const [isTouch, setIsTouch] = useState(false);
+  const [rotation, setRotation] = useState(0); // degrees: 0, 90, 180, 270
 
   // Update handle size based on input type
   const getHandleSize = () => (isTouch ? 24 : 12);
@@ -157,10 +158,33 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
     console.log('✅ Drawing canvas with crop area:', cropArea);
     
-    // Clear canvas and draw image
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    
+
+    // Save context state
+    ctx.save();
+
+    // Move to center for rotation
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
+
+    // Draw image centered, accounting for rotation
+    let drawWidth = canvas.width;
+    let drawHeight = canvas.height;
+    if (rotation % 180 !== 0) {
+      // Swap width/height for 90/270
+      [drawWidth, drawHeight] = [drawHeight, drawWidth];
+    }
+    ctx.drawImage(
+      img,
+      -drawWidth / 2,
+      -drawHeight / 2,
+      drawWidth,
+      drawHeight
+    );
+
+    ctx.restore();
+
     // Draw overlay (darken area outside crop)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -209,7 +233,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     });
     
     console.log('✅ Canvas drawing complete');
-  }, [cropArea, imageLoaded]);
+  }, [cropArea, imageLoaded, rotation]);
 
   useEffect(() => {
     if (imageLoaded) {
@@ -373,17 +397,38 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
       tempCtx.imageSmoothingQuality = 'high';
 
       // Draw cropped portion with exact pixel mapping
+      tempCtx.save();
+      // Move to center of crop area
+      tempCtx.translate(cropWidth / 2, cropHeight / 2);
+      tempCtx.rotate((rotation * Math.PI) / 180);
+      // Draw rotated image so crop area matches preview
+      let drawWidth = img.width;
+      let drawHeight = img.height;
+      let sx = cropX;
+      let sy = cropY;
+      if (rotation % 180 !== 0) {
+        [drawWidth, drawHeight] = [img.height, img.width];
+        // Adjust sx, sy for 90/270 rotation
+        if (rotation === 90) {
+          sx = cropY;
+          sy = img.width - cropX - cropWidth;
+        } else if (rotation === 270) {
+          sx = img.height - cropY - cropHeight;
+          sy = cropX;
+        }
+      }
       tempCtx.drawImage(
         img,
-        cropX,
-        cropY,
+        sx,
+        sy,
         cropWidth,
         cropHeight,
-        0,
-        0,
+        -cropWidth / 2,
+        -cropHeight / 2,
         cropWidth,
         cropHeight
       );
+      tempCtx.restore();
 
       // Convert to blob with maximum quality
       tempCanvas.toBlob((blob) => {
@@ -494,6 +539,24 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
         </div>
 
         <DialogFooter className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+            className="flex items-center gap-2"
+            title="Rotate Left"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Left
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setRotation((r) => (r + 90) % 360)}
+            className="flex items-center gap-2"
+            title="Rotate Right"
+          >
+            <RotateCcw className="h-4 w-4 transform rotate-180" />
+            Right
+          </Button>
           <Button
             variant="outline"
             onClick={resetCrop}
