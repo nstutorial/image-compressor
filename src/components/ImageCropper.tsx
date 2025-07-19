@@ -209,6 +209,8 @@ ctx.clip();
 // Draw the image again, only in the crop area
 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
+     ctx.globalCompositeOperation = 'source-over';
+
 ctx.restore();
     
     // Draw crop border
