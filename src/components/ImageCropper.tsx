@@ -185,16 +185,31 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
     ctx.restore();
 
-    // Draw overlay (darken area outside crop)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // // Draw overlay (darken area outside crop)
+    // ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    // ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Clear crop area to show original image clearly
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillRect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
+    // // Clear crop area to show original image clearly
+    // ctx.globalCompositeOperation = 'destination-out';
+    // ctx.fillRect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
     
-    // Reset composite operation
-    ctx.globalCompositeOperation = 'source-over';
+    // // Reset composite operation
+    // ctx.globalCompositeOperation = 'source-over';
+
+    // 1. Draw overlay (darken area outside crop)
+ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+// 2. Redraw the original image only in the crop area
+ctx.save();
+ctx.beginPath();
+ctx.rect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
+ctx.clip();
+
+// Draw the image again, only in the crop area
+ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+ctx.restore();
     
     // Draw crop border
     ctx.globalCompositeOperation = 'source-over';
