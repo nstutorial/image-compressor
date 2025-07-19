@@ -44,19 +44,6 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   // Update handle size based on input type
   const getHandleSize = () => (isTouch ? 24 : 12);
 
-  useEffect(() => {
-  // When rotation changes, reset crop area to center
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const initialSize = Math.min(200, canvas.width * 0.5, canvas.height * 0.5);
-  setCropArea({
-    x: (canvas.width - initialSize) / 2,
-    y: (canvas.height - initialSize) / 2,
-    width: initialSize,
-    height: initialSize,
-  });
-}, [rotation, imageLoaded]);
-
   // Load and display image
   useEffect(() => {
     console.log('🔄 Image loading useEffect triggered');
@@ -156,93 +143,113 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     };
   }, [isOpen, imageFile]);
 
-const drawCanvas = useCallback(() => {
-  const canvas = canvasRef.current;
-  const ctx = canvas?.getContext('2d');
-  const img = imageRef.current;
-  if (!canvas || !ctx || !img || !imageLoaded) return;
+  const drawCanvas = useCallback(() => {
+    console.log('🔄 drawCanvas called');
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    const img = imageRef.current;
+    
+    console.log('Canvas:', !!canvas, 'Context:', !!ctx, 'Image:', !!img, 'ImageLoaded:', imageLoaded);
+    
+    if (!canvas || !ctx || !img || !imageLoaded) {
+      console.log('❌ drawCanvas early return - missing dependencies');
+      return;
+    }
 
-  // Calculate correct canvas size for rotation
-  let [drawWidth, drawHeight] = [img.width, img.height];
-  let [canvasWidth, canvasHeight] = [drawWidth, drawHeight];
+    console.log('✅ Drawing canvas with crop area:', cropArea);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (rotation % 180 !== 0) {
-    // 90 or 270: swap width/height
-    [canvasWidth, canvasHeight] = [drawHeight, drawWidth];
-  }
+    // Save context state
+    ctx.save();
 
-  // Resize canvas and optionally reset crop area if needed
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+    // Move to center for rotation
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
 
-  // Clear canvas before drawing
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw image centered, accounting for rotation
+    let drawWidth = canvas.width;
+    let drawHeight = canvas.height;
+    if (rotation % 180 !== 0) {
+      // Swap width/height for 90/270
+      [drawWidth, drawHeight] = [drawHeight, drawWidth];
+    }
+    ctx.drawImage(
+      img,
+      -drawWidth / 2,
+      -drawHeight / 2,
+      drawWidth,
+      drawHeight
+    );
 
-  // Draw rotated image centered in canvas
-  ctx.save();
-  switch (rotation) {
-    case 0:
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 90:
-      ctx.translate(canvasWidth, 0);
-      ctx.rotate(Math.PI / 2);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 180:
-      ctx.translate(canvasWidth, canvasHeight);
-      ctx.rotate(Math.PI);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 270:
-      ctx.translate(0, canvasHeight);
-      ctx.rotate(3 * Math.PI / 2);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    default:
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-  }
-  ctx.restore();
+    ctx.restore();
 
-  // Draw overlay (darken area outside crop)
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // // Draw overlay (darken area outside crop)
+    // ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    // ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // // Clear crop area to show original image clearly
+    // ctx.globalCompositeOperation = 'destination-out';
+    // ctx.fillRect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
+    
+    // // Reset composite operation
+    // ctx.globalCompositeOperation = 'source-over';
 
-  // Show original image in crop area (clear overlay)
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
-  ctx.clip();
-  // Redraw the image in the crop area, with the same rotation
-  ctx.save();
-  switch (rotation) {
-    case 0:
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 90:
-      ctx.translate(canvasWidth, 0);
-      ctx.rotate(Math.PI / 2);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 180:
-      ctx.translate(canvasWidth, canvasHeight);
-      ctx.rotate(Math.PI);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    case 270:
-      ctx.translate(0, canvasHeight);
-      ctx.rotate(3 * Math.PI / 2);
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-      break;
-    default:
-      ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
-  }
-  ctx.restore();
-  ctx.restore();
+    // 1. Draw overlay (darken area outside crop)
+ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw crop border and handles as before...
-  // (keep your existing code for border/handles)
-}, [cropArea, imageLoaded, rotation]);
+// 2. Redraw the original image only in the crop area
+ctx.save();
+ctx.beginPath();
+ctx.rect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
+ctx.clip();
+
+// Draw the image again, only in the crop area
+ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+
+ctx.restore();
+    
+    // Draw crop border
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#007acc';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(cropArea.x, cropArea.y, cropArea.width, cropArea.height);
+    
+    // Draw resize handles
+    ctx.setLineDash([]);
+    const handleSize = getHandleSize();
+    
+    // Corner handles
+    const cornerHandles = [
+      { x: cropArea.x - handleSize/2, y: cropArea.y - handleSize/2 }, // nw
+      { x: cropArea.x + cropArea.width - handleSize/2, y: cropArea.y - handleSize/2 }, // ne
+      { x: cropArea.x - handleSize/2, y: cropArea.y + cropArea.height - handleSize/2 }, // sw
+      { x: cropArea.x + cropArea.width - handleSize/2, y: cropArea.y + cropArea.height - handleSize/2 }, // se
+    ];
+    
+    // Edge handles
+    const edgeHandles = [
+      { x: cropArea.x + cropArea.width/2 - handleSize/2, y: cropArea.y - handleSize/2 }, // n
+      { x: cropArea.x + cropArea.width/2 - handleSize/2, y: cropArea.y + cropArea.height - handleSize/2 }, // s
+      { x: cropArea.x + cropArea.width - handleSize/2, y: cropArea.y + cropArea.height/2 - handleSize/2 }, // e
+      { x: cropArea.x - handleSize/2, y: cropArea.y + cropArea.height/2 - handleSize/2 }, // w
+    ];
+    
+    // Draw all handles
+    [...cornerHandles, ...edgeHandles].forEach(handle => {
+      ctx.fillStyle = '#007acc';
+      ctx.fillRect(handle.x, handle.y, handleSize, handleSize);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(handle.x, handle.y, handleSize, handleSize);
+    });
+    
+    console.log('✅ Canvas drawing complete');
+  }, [cropArea, imageLoaded, rotation]);
 
   useEffect(() => {
     if (imageLoaded) {
