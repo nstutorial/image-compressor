@@ -209,7 +209,6 @@ ctx.clip();
 // Draw the image again, only in the crop area
 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-     ctx.globalCompositeOperation = 'source-over';
 
 ctx.restore();
     
@@ -374,101 +373,116 @@ ctx.restore();
     setResizeHandle(null);
   };
 
-  const handleCrop = () => {
-    const canvas = canvasRef.current;
-    const img = imageRef.current;
-    
-    if (!canvas || !img) {
-      toast({
-        title: "Error",
-        description: "Unable to crop image. Please try again.",
-        variant: "destructive",
-      });
-      return;
+const handleCrop = () => {
+  const canvas = canvasRef.current;
+  const img = imageRef.current;
+
+  if (!canvas || !img) {
+    toast({
+      title: "Error",
+      description: "Unable to crop image. Please try again.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    // Calculate scale
+    const scaleX = img.width / canvas.width;
+    const scaleY = img.height / canvas.height;
+
+    // Get crop area on the canvas
+    let { x, y, width, height } = cropArea;
+
+    // Calculate crop area in original image coordinates
+    let sx = 0, sy = 0, sw = 0, sh = 0;
+    let tmp;
+
+    switch (rotation) {
+      case 0:
+        sx = Math.round(x * scaleX);
+        sy = Math.round(y * scaleY);
+        sw = Math.round(width * scaleX);
+        sh = Math.round(height * scaleY);
+        break;
+      case 90:
+        // Swap x/y and width/height, account for origin shift
+        sx = Math.round(y * scaleY);
+        sy = Math.round(img.width - (x + width) * scaleX);
+        sw = Math.round(height * scaleY);
+        sh = Math.round(width * scaleX);
+        break;
+      case 180:
+        sx = Math.round(img.width - (x + width) * scaleX);
+        sy = Math.round(img.height - (y + height) * scaleY);
+        sw = Math.round(width * scaleX);
+        sh = Math.round(height * scaleY);
+        break;
+      case 270:
+        sx = Math.round(img.height - (y + height) * scaleY);
+        sy = Math.round(x * scaleX);
+        sw = Math.round(height * scaleY);
+        sh = Math.round(width * scaleX);
+        break;
+      default:
+        // fallback to no rotation
+        sx = Math.round(x * scaleX);
+        sy = Math.round(y * scaleY);
+        sw = Math.round(width * scaleX);
+        sh = Math.round(height * scaleY);
+        break;
     }
 
-    try {
-      // Calculate crop area relative to original image
-      const scaleX = img.width / canvas.width;
-      const scaleY = img.height / canvas.height;
-      
-      const cropX = Math.round(cropArea.x * scaleX);
-      const cropY = Math.round(cropArea.y * scaleY);
-      const cropWidth = Math.round(cropArea.width * scaleX);
-      const cropHeight = Math.round(cropArea.height * scaleY);
+    // Create temp canvas for crop result
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = sw;
+    tempCanvas.height = sh;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) throw new Error('Unable to get canvas context');
 
-      console.log('Cropping with dimensions:', { cropX, cropY, cropWidth, cropHeight });
+    // Draw the correct region of the original image to temp canvas
+    tempCtx.save();
+    switch (rotation) {
+      case 0:
+        tempCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        break;
+      case 90:
+        tempCtx.translate(sw, 0);
+        tempCtx.rotate(Math.PI / 2);
+        tempCtx.drawImage(img, sx, sy, sh, sw, 0, 0, sh, sw);
+        break;
+      case 180:
+        tempCtx.translate(sw, sh);
+        tempCtx.rotate(Math.PI);
+        tempCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        break;
+      case 270:
+        tempCtx.translate(0, sh);
+        tempCtx.rotate(3 * Math.PI / 2);
+        tempCtx.drawImage(img, sx, sy, sh, sw, 0, 0, sh, sw);
+        break;
+    }
+    tempCtx.restore();
 
-      // Create temporary canvas for cropping
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      if (!tempCtx) throw new Error('Unable to get canvas context');
-
-      // Set canvas size to exact crop dimensions
-      tempCanvas.width = cropWidth;
-      tempCanvas.height = cropHeight;
-
-      // Disable image smoothing for crisp results
-      tempCtx.imageSmoothingEnabled = false;
-      tempCtx.imageSmoothingQuality = 'high';
-
-      // Draw cropped portion with exact pixel mapping
-      tempCtx.save();
-      // Move to center of crop area
-      tempCtx.translate(cropWidth / 2, cropHeight / 2);
-      tempCtx.rotate((rotation * Math.PI) / 180);
-      // Draw rotated image so crop area matches preview
-      let drawWidth = img.width;
-      let drawHeight = img.height;
-      let sx = cropX;
-      let sy = cropY;
-      if (rotation % 180 !== 0) {
-        [drawWidth, drawHeight] = [img.height, img.width];
-        // Adjust sx, sy for 90/270 rotation
-        if (rotation === 90) {
-          sx = cropY;
-          sy = img.width - cropX - cropWidth;
-        } else if (rotation === 270) {
-          sx = img.height - cropY - cropHeight;
-          sy = cropX;
-        }
+    tempCanvas.toBlob((blob) => {
+      if (blob) {
+        onCropComplete(blob);
+        onClose();
+        toast({
+          title: "Success",
+          description: "Image cropped successfully!",
+        });
       }
-      tempCtx.drawImage(
-        img,
-        sx,
-        sy,
-        cropWidth,
-        cropHeight,
-        -cropWidth / 2,
-        -cropHeight / 2,
-        cropWidth,
-        cropHeight
-      );
-      tempCtx.restore();
-
-      // Convert to blob with maximum quality
-      tempCanvas.toBlob((blob) => {
-        if (blob) {
-          console.log('Crop completed, blob size:', blob.size);
-          onCropComplete(blob);
-          onClose();
-          toast({
-            title: "Success",
-            description: "Image cropped successfully!",
-          });
-        }
-      }, 'image/jpeg', 1.0); // Maximum quality (1.0 instead of 0.9)
-    } catch (error) {
-      console.error('Crop failed:', error);
-      toast({
-        title: "Error",
-        description: "Failed to crop image. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
+    }, 'image/jpeg', 1.0);
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Failed to crop image. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+  
   const resetCrop = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
