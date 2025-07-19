@@ -27,8 +27,9 @@ interface ImageFile {
 
 const ImageCompressor: React.FC = () => {
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
-  const [settings, setSettings] = useState<CompressionSettings>({
-    // targetSize: 100,
+  const [settings, setSettings] = useState<CompressionSettings & { targetSizeInput: string }>({
+    targetSize: 100,
+    targetSizeInput: '100',
     format: 'jpeg',
     quality: 0.8,
   });
@@ -310,7 +311,6 @@ const ImageCompressor: React.FC = () => {
                   multiple
                   accept="image/*"
                   className="hidden"
-                   required
                   onChange={(e) => handleFileUpload(e.target.files)}
                 />
               </div>
@@ -383,13 +383,22 @@ const ImageCompressor: React.FC = () => {
                 <Input
                   id="targetSize"
                   type="number"
-                  value={settings.targetSize}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      targetSize: parseInt(e.target.value) || 100,
-                    }))
-                  }
+                  value={settings.targetSizeInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings((prev) => {
+                      // If blank, allow blank input but don't update targetSize
+                      if (val === '') {
+                        return { ...prev, targetSizeInput: '' };
+                      }
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num) && num > 0) {
+                        return { ...prev, targetSize: num, targetSizeInput: val };
+                      }
+                      // If invalid, just update the input
+                      return { ...prev, targetSizeInput: val };
+                    });
+                  }}
                   min="1"
                   max="10000"
                 />
@@ -449,7 +458,7 @@ const ImageCompressor: React.FC = () => {
               <div className="space-y-2">
                 <Button
                   onClick={handleCompress}
-                  disabled={imageFiles.length === 0 || isCompressing}
+                  disabled={imageFiles.length === 0 || isCompressing || !settings.targetSize || isNaN(settings.targetSize) || settings.targetSize < 1}
                   className="w-full bg-gradient-primary hover:shadow-glow transition-smooth"
                 >
                   {isCompressing ? 'Compressing...' : 'Compress Images'}
