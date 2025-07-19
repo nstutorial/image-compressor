@@ -44,6 +44,19 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   // Update handle size based on input type
   const getHandleSize = () => (isTouch ? 24 : 12);
 
+  useEffect(() => {
+  // When rotation changes, reset crop area to center
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const initialSize = Math.min(200, canvas.width * 0.5, canvas.height * 0.5);
+  setCropArea({
+    x: (canvas.width - initialSize) / 2,
+    y: (canvas.height - initialSize) / 2,
+    width: initialSize,
+    height: initialSize,
+  });
+}, [rotation, imageLoaded]);
+
   // Load and display image
   useEffect(() => {
     console.log('🔄 Image loading useEffect triggered');
