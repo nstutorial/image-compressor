@@ -28,7 +28,7 @@ interface ImageFile {
 const ImageCompressor: React.FC = () => {
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([]);
   const [settings, setSettings] = useState<CompressionSettings>({
-    targetSize: 100,
+    // targetSize: 100,
     format: 'jpeg',
     quality: 0.8,
   });
@@ -310,6 +310,7 @@ const ImageCompressor: React.FC = () => {
                   multiple
                   accept="image/*"
                   className="hidden"
+                   required
                   onChange={(e) => handleFileUpload(e.target.files)}
                 />
               </div>
